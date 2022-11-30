@@ -1,0 +1,52 @@
+﻿/* Custom CSS */
+
+.table-hover tbody tr:hover {
+    cursor:pointer;
+}
+table th {
+    text-align: center;
+}
+
+.rowControl:active, .card:active, .highlight-card {
+    background-color: rgba(236, 236, 236, 1);
+
+}
+
+.card:hover {
+    background-color: hsl(205, 88%, 83%);
+}
+.bg-set {
+    background-color: hsl(205, 88%, 83%) !important;
+}
+
+.tooltip {
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    color: white;
+}
+
+.card:active, .card-selected {
+    background-color: rgba(236, 236, 236, 1) !important;
+}
+
+rect {
+    fill: steelblue;
+}
+
+    .clickable, rect:hover {
+        cursor: pointer;
+    }
+
+.balance {
+    margin-left: 8.333333%;
+    margin-right: 8.333333%;
+    border: solid;
+}
+
+
+
+.center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+}

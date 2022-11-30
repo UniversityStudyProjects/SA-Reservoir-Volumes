@@ -1,0 +1,310 @@
+﻿@{ ViewBag.Title = "South Australia Reservoir Volumes"; }
+
+@section styles {
+    <style>
+        /* Place temporary CSS here them move to Site.css when happy =) */
+
+    </style>
+}
+
+
+<!-- Do NOT change this html.  All work must be done via the script element -->
+<div class="row">
+    <div class="col-5">
+        <div class="border rounded border-info p-1" id="reservoirList">
+            <h3 class="text-center">Reservoir List</h3>
+        </div>
+    </div>
+    <div class="col-7" id="graphs">
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script src="~/Scripts/d3/d3.js"></script>
+    <script>
+        // write your JavaScript here
+        // example request provided
+        var $request = $.ajax({
+            url: '/api/Reservoirs',
+            method: 'GET',
+            timeout: 10000
+        })
+
+        $request.fail(function () {
+            // TODO
+            // append error message on page
+            $('div#reservoirList').hide();
+            $('div#graphs').hide();
+            $contentDiv = $('div.row');
+            $text = $('h2').text('Failed to load Reservoir Data').addClass('text-center');
+            $text.appendTo($contentDiv);
+            $('<br>').appendTo('div.row');
+            $img = $('<img>').attr('src', '/Images/danger.jpg').attr('alt', 'Danger symbol');
+
+            $img.appendTo('div.row');
+
+        })
+
+        $request.done(function (response) {
+            var $table = $('<table>').addClass('table table-striped table-hover').appendTo($('#reservoirList'));
+
+            var $thead = $('<thead>').appendTo($table);
+            var $tr = $('<tr>').appendTo($thead);
+            $('<th>').text('Name').appendTo($tr);
+            $('<th>').text('Capacity(ML)').appendTo($tr);
+            $('<th>').text('').appendTo($tr);
+
+            var $tbody = $('<tbody>').appendTo($table);
+
+            var $graph = $('#graphs');
+
+            var selectedReservoir;
+
+            $.each(response, function (i, resev) {
+                var $tr = $('<tr>').attr('title', 'Click to view ' + resev.reservoirDetail.reservoirName + ' capacity data from '
+                    + resev.dateRange.from + ' to' + resev.dateRange.to + ' [' + resev.records + ' records]')
+                    .on('click', function () {
+                        $('tr').removeClass('bg-set');
+                        $tr.addClass('bg-set');
+                        selectedReservoir = resev.reservoirDetail.reservoirName;
+                        selectReservoir(resev.reservoirDetail.reservoirID);
+                    })
+                    .addClass('rowControl')
+                    .appendTo($tbody);
+                $('<td>').text(resev.reservoirDetail.reservoirName).appendTo($tr);
+                $('<td>').text(resev.reservoirDetail.capacityML.toLocaleString())
+                    .addClass('text-right')
+                    .appendTo($tr);
+
+                var $td = $('<td>').appendTo($tr);
+                $('<a>').attr('href', 'https://www.google.com/maps/place/' + resev.reservoirDetail.reservoirName)
+                    .attr('target', '_blank')
+                    .addClass('btn btn-outline-primary').text('View Map').appendTo($td);
+
+                $graph.empty();
+                var $graphSide = $('<p>Select a Reservoir to view…</p>').appendTo('#graphs');
+
+            })
+
+            function selectReservoir(selectedID) {
+                var $request = $.ajax({
+                    url: '/api/Reservoirs/' + selectedID,
+                    method: 'GET',
+                    timeout: 10000
+                })
+                $request.fail(function () {
+                  
+                    $('div#graphs').empty();
+                    $contentDiv = $('div#graphs');
+                    $text = $('h2').text('Failed to load Reservoir Year Data').addClass('text-center');
+                    $text.appendTo($contentDiv);
+                    $('<br>').appendTo($contentDiv);
+                    $img = $('<img>').attr('src', '/Images/danger.jpg')
+                        .attr('alt', 'Danger symbol')
+                        .attr('width', '200')
+                        .attr('height', '200')
+                        .addClass('center');
+
+                    $img.appendTo($contentDiv);
+
+                })
+                $request.done(function (response) {
+
+                    $graph.empty();
+                    var ttext = 'Click to view volume detail';
+
+                    $.each(response, function (i, reservYear) {
+                        let $card = $('<div>').addClass('card clickable w-100 mb-2')
+                            
+                            .hover(function () {
+                                if (!$(this).hasClass('card-selected')){
+                                    $(this).attr('title', ttext)
+                                }
+                                }, function () { })
+                            .on('click', function () {
+                                $('div.balance').empty();
+                                $('div').removeClass('balance');
+                                $('div').removeClass('card-selected');
+                                
+
+
+                                $card.addClass('card-selected');
+                                $(this).removeAttr('title');
+                                $('<div>')
+                                    .attr('width', '100%')
+                                    .attr('height', $card.height() * 2)
+                                    @*.css('background-color', 'hsl(179, 2%, 95%)')*@
+                                    .addClass('balance')
+                                    .appendTo('div.card-selected').slideDown('slow');
+                                showGraph(selectedID, reservYear.year);
+                            })
+                            .appendTo($graph);
+
+                        let $body = $('<div>').addClass('card-body offset-2').appendTo($card);
+
+                        $('<h5>').text(reservYear.year).addClass('class-title').appendTo($body);
+                        $('<p>').text('Records: ' + reservYear.records + ' dating from '
+                            + reservYear.firstMonthName + ' to ' + reservYear.lastMonthName)
+                            .addClass('card-text')
+                            .appendTo($body);
+                        $('<p>').text('Avg Volume: ' + reservYear.avgVolume.toLocaleString() + ' ML')
+                            .addClass('card-text')
+                            .appendTo($body);
+                    })
+                })
+            }
+
+            var tooltip = getTooltip();
+
+            function getTooltip() {
+                return d3.select('#graphs').append('div')
+                    .attr('class', 'tooltip')
+                    .style('position', 'absolute') // sets the tooltip position over the bar and not behind
+                    .style('background', 'hsl(239, 79%, 57%)')
+                    .style('padding', '5px 15px')
+                    .style('border', '1px #333 solid')
+                    .style('border-radius', '5px')
+                    .style('opacity', '0')  // we want it to be viewable when we hover over the bar???
+            }
+
+            function showGraph(reservoirID, selectedYear) {
+                var $request = $.ajax({
+                    url: '/api/Reservoirs/' + reservoirID + '?year=' + selectedYear,
+                    method: 'GET',
+                    timeout: 10000
+                })
+
+
+
+                $request.done(function (data) {
+                    var svg = d3.select('div.balance')
+                        .append('svg')
+                        .attr('width', '100%')
+                        .attr('height', '400');
+                    const width = svg.node().getBoundingClientRect().width;
+
+                    const height = svg.node().getBoundingClientRect().height;
+                    
+                    const yValue = function (d) { return d.dayNo + ' of ' + d.monthName.substring(0, 3); };
+                    const xValue = function (d) { return d.volumeToday; };
+
+                    var maxVol = d3.max(data, xValue);
+                    var margin = new Object();
+                    margin.left = 100;
+                    margin.right = 20;
+                    margin.top = 60;
+                    margin.bottom = 30;
+
+                    var innerWidth = width - margin.left - margin.right;
+                    var innerHeight = height - margin.top - margin.bottom;
+
+                    const xScale = d3.scaleLinear()
+                        .domain([0, maxVol])
+                        .range([0, innerWidth]);
+
+
+                    const xAxis = d3.axisBottom(xScale); //.tickFormat(xAxisTickFormat)
+
+                    const yScale = d3.scaleBand()
+                        .padding(0.1)
+                        .domain(data.map(yValue))
+                        .range([0, innerHeight]); // Data elements to be arranged from top to bottom
+
+                    const yAxis = d3.axisLeft(yScale);
+
+                    const g = svg.append('g')
+                        .attr('transform', 'translate('
+                            + margin.left + ',' + margin.top + ')');
+
+                    g.append('g').call(yAxis); // or we can say g.append('g').call(yAxis);
+                    var xAxisGroup = g.append('g').call(xAxis)
+                        .attr('transform', 'translate(0,'
+                            + innerHeight + ')');
+                    xAxisGroup.selectAll('.tick').remove(); // Removes all the text from the xAxis
+
+                    xAxisGroup.append('text')
+                        .attr('y', 10)
+                        .attr('x', innerWidth / 2)
+                        .attr('dy', '0.9em')
+                        .attr('fill', 'black')
+                        .text('Reservoir Volume (ML)');
+
+                    //font - size: 0.9em;
+                    //fill: black;
+
+                    g.append('text')
+                        .attr('y', '-5')
+                        .attr('x', '-50')
+                        .style('font-size', '0.9em')
+                        .attr('fill', 'black')
+                        .text('Months');
+
+
+
+                    g.append('text')
+                        .attr('y', '-30')
+                        .attr('x', '20')
+                        .style('font-size', '1.2em')
+                        .attr('fill', 'rgb(0,100,0)')
+                        .text(selectedReservoir + ' in ' + selectedYear);
+
+                    
+                    // CREATING OUR BARS
+                    g.selectAll('rect')
+                        .data(data)
+                        .enter()
+                        .append('rect')
+                        .attr('y', d => yScale(yValue(d)))
+                        .attr('width', d => xScale(xValue(d)) * 0.1)
+                        .attr('height', yScale.bandwidth()) // bandwidth is the computed width of a single bar
+                        .style("fill", function (d, index) {
+                            return "hsl(239, 79%, " + (d.volumeToday / maxVol * 75) + "%)"
+                        })
+                        .on('mouseover', function (d) {
+                            tooltip.transition()
+                                .style('opacity', '1'); // we bring the tooltip to view
+                            tooltip.html(d.volumeToday.toLocaleString()
+                                + ' ML on ' + d.dayNo + ' ' + d.monthName + ' of ' + d.year)
+                                .style('left', (d3.event.pageX - 600) + 'px')
+                                .style('top', (d3.event.pageY - 100) + 'px')
+                        })
+                        .on("mousemove", function () {tooltip.style("top", (d3.event.pageY - 100) + "px").style("left", (d3.event.pageX - 600) + "px"); })
+                        .on('mouseout', function (d) {
+                            tooltip.transition()
+                                .style('opacity', '0');
+                            tooltip.remove()
+                            tooltip = getTooltip()
+                        })
+
+                    g.selectAll('rect').transition()
+                        .attr('width', d => xScale(xValue(d)))
+                        .duration(1000)
+                        .delay(function (d, i) {
+                            return i * 30
+                        })
+                        .ease(d3.easeLinear);
+
+
+
+
+                    //g.append('text')
+                    //    .attr('text-anchor', 'right')
+                    //    .attr('x', 25)
+                    //    .attr('y', function () { return yScale.bandwidth() / 2; })
+                    //    .attr('fill', 'black')
+                    //    .text(function (d, i) { return d.volumeToday; });
+
+                })
+            }
+
+
+        })
+
+
+
+
+    </script>
+}
+
